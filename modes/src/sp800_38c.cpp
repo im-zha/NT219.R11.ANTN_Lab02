@@ -1,7 +1,8 @@
-#include "modes.h"
+#include "sp800_38c.hpp"
 
 using namespace std;
 
+namespace lab {
 namespace {
 
 void validate_ccm_tag_length(int tag_length) {
@@ -135,86 +136,54 @@ void ccm_crypt(const AES& aes, const Byte* input, size_t length,
 
 }  // namespace
 
-Modes38C::Modes38C(const Bytes& key) : aes_(modes_detail::make_aes(key)) {}
-
 // SP 800-38C section 6.1 and Appendix A: ciphertext || (CBC-MAC XOR S0).
-Bytes Modes38C::ccm_encrypt(const Bytes& plaintext, const Bytes& associated_data,
-                          const optional<Bytes>& nonce, int tag_length,
-                          bool prepend_nonce) const {
+Bytes ccm_encrypt(const AES& aes, const Bytes& plaintext, const Bytes& nonce,
+                  const Bytes& associated_data, int tag_length) {
     validate_ccm_tag_length(tag_length);
-    const Bytes generated_nonce = nonce ? Bytes{} : modes_detail::random_bytes(13);
-    const Bytes& actual_nonce = nonce ? *nonce : generated_nonce;
-    validate_ccm_nonce_length(actual_nonce.size());
-    const size_t q = 15 - actual_nonce.size();
+    validate_ccm_nonce_length(nonce.size());
+    const size_t q = 15 - nonce.size();
     validate_ccm_lengths(plaintext.size(), associated_data.size(), q);
-
-    const size_t prefix_length = prepend_nonce ? actual_nonce.size() : 0;
-    const size_t overhead = prefix_length + static_cast<size_t>(tag_length);
+    const size_t tag_size = static_cast<size_t>(tag_length);
     Bytes result;
-    if (overhead > result.max_size() || plaintext.size() > result.max_size() - overhead) {
+    if (plaintext.size() > result.max_size() - tag_size) {
         throw length_error("AES-CCM ciphertext is too large.");
     }
-    result.resize(plaintext.size() + overhead);
-    if (prepend_nonce) copy(actual_nonce.begin(), actual_nonce.end(), result.begin());
-
-    const Block tag = ccm_mac(aes_, actual_nonce.data(), actual_nonce.size(),
-                              associated_data, plaintext, tag_length);
-    Block counter = ccm_counter(actual_nonce.data(), actual_nonce.size());
-    const Block tag_mask = aes_.encrypt(counter);  // Counter zero is only for the tag.
-    ccm_crypt(aes_, plaintext.data(), plaintext.size(), counter, q,
-              result.data() + prefix_length);
-    const size_t tag_offset = prefix_length + plaintext.size();
-    for (int i = 0; i < tag_length; ++i) {
-        result[tag_offset + static_cast<size_t>(i)] = tag[i] ^ tag_mask[i];
+    result.resize(plaintext.size() + tag_size);
+    const Block tag = ccm_mac(aes, nonce.data(), nonce.size(), associated_data, plaintext, tag_length);
+    Block counter = ccm_counter(nonce.data(), nonce.size());
+    const Block tag_mask = aes.encrypt(counter);
+    ccm_crypt(aes, plaintext.data(), plaintext.size(), counter, q, result.data());
+    for (size_t i = 0; i < tag_size; ++i) {
+        result[plaintext.size() + i] = tag[i] ^ tag_mask[i];
     }
     return result;
 }
 
-// SP 800-38C section 6.2. The local plaintext is released only after verification.
-Bytes Modes38C::ccm_decrypt(const Bytes& ciphertext_and_tag, const Bytes& associated_data,
-                          const optional<Bytes>& nonce, bool has_nonce,
-                          int nonce_length, int tag_length) const {
-    if (nonce_length < 7 || nonce_length > 13) {
-        throw invalid_argument("nonce_length must be between 7 and 13 bytes.");
-    }
+// SP 800-38C section 6.2: plaintext is returned only after tag verification.
+Bytes ccm_decrypt(const AES& aes, const Bytes& ciphertext_and_tag, const Bytes& nonce,
+                  const Bytes& associated_data, int tag_length) {
     validate_ccm_tag_length(tag_length);
+    validate_ccm_nonce_length(nonce.size());
     const size_t tag_size = static_cast<size_t>(tag_length);
-    size_t prefix_length = 0;
-    const Byte* actual_nonce;
-    size_t actual_nonce_length;
-    if (has_nonce) {
-        prefix_length = static_cast<size_t>(nonce_length);
-        if (ciphertext_and_tag.size() < prefix_length + tag_size) {
-            throw invalid_argument("AES-CCM input with prepended nonce must contain nonce + ciphertext/tag.");
-        }
-        actual_nonce = ciphertext_and_tag.data();
-        actual_nonce_length = prefix_length;
-    } else {
-        if (!nonce) throw invalid_argument("nonce is required when has_nonce=False.");
-        validate_ccm_nonce_length(nonce->size());
-        actual_nonce = nonce->data();
-        actual_nonce_length = nonce->size();
-        if (ciphertext_and_tag.size() < tag_size) {
-            throw runtime_error("AES-CCM authentication failed.");
-        }
+    if (ciphertext_and_tag.size() < tag_size) {
+        throw runtime_error("AES-CCM authentication failed.");
     }
-
-    const size_t payload_length = ciphertext_and_tag.size() - prefix_length - tag_size;
-    const size_t q = 15 - actual_nonce_length;
+    const size_t payload_length = ciphertext_and_tag.size() - tag_size;
+    const size_t q = 15 - nonce.size();
     validate_ccm_lengths(payload_length, associated_data.size(), q);
     Bytes plaintext(payload_length);
-    Block counter = ccm_counter(actual_nonce, actual_nonce_length);
-    const Block tag_mask = aes_.encrypt(counter);
-    ccm_crypt(aes_, ciphertext_and_tag.data() + prefix_length, payload_length,
-              counter, q, plaintext.data());
-    const Block expected_tag = ccm_mac(aes_, actual_nonce, actual_nonce_length,
-                                       associated_data, plaintext, tag_length);
-    const size_t tag_offset = prefix_length + payload_length;
+    Block counter = ccm_counter(nonce.data(), nonce.size());
+    const Block tag_mask = aes.encrypt(counter);
+    ccm_crypt(aes, ciphertext_and_tag.data(), payload_length, counter, q, plaintext.data());
+    const Block expected_tag = ccm_mac(aes, nonce.data(), nonce.size(),
+                                      associated_data, plaintext, tag_length);
     unsigned difference = 0;
     for (size_t i = 0; i < tag_size; ++i) {
-        difference |= static_cast<unsigned>(ciphertext_and_tag[tag_offset + i] ^
+        difference |= static_cast<unsigned>(ciphertext_and_tag[payload_length + i] ^
                                             expected_tag[i] ^ tag_mask[i]);
     }
     if (difference != 0) throw runtime_error("AES-CCM authentication failed.");
     return plaintext;
 }
+
+}  // namespace lab

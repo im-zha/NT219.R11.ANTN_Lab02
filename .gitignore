@@ -1,0 +1,32 @@
+# Original Python teaching materials and reference-only files.
+/AES_project_all_modes_PyQt6.py
+/test_key_gen.py
+/mypackages/
+/Materials/
+/materials/
+
+# Generated executables and build files (modes has its own build-dir rule).
+/AES
+/AES.exe
+/build*/
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dll
+*.exe
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+install_manifest.txt
+
+# Editor temporary files and Python caches.
+*~
+*.swp
+*.swo
+*.kate-swp
+__pycache__/
+*.py[cod]
