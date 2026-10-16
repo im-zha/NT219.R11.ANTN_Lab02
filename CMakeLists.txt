@@ -32,11 +32,24 @@ if(AES_BUILD_EXECUTABLE)
   if(AES_BUILD_TESTS)
     add_test(NAME aes_core_vectors COMMAND AES)
   endif()
+
+  # Task 3: link the same client separately to the static and shared libraries.
+  foreach(linkage IN ITEMS static shared)
+    if(TARGET aes_modes_${linkage})
+      add_executable(aes_consumer_${linkage} task3/main.cpp)
+      target_link_libraries(aes_consumer_${linkage} PRIVATE aes_modes_${linkage})
+      set_target_properties(aes_consumer_${linkage} PROPERTIES
+        CXX_EXTENSIONS OFF
+        OUTPUT_NAME aes_consumer
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/consumer-${linkage}"
+      )
+    endif()
+  endforeach()
 endif()
 
 # Task 4: the Python client uses ctypes only and needs a shared library.
 if(TARGET aes_modes_shared)
-  install(FILES examples/python/aes_modes.py examples/python/demo.py
+  install(FILES task4/aes_modes.py task4/main.py
     DESTINATION ${CMAKE_INSTALL_DATADIR}/AESModes/python
   )
 endif()

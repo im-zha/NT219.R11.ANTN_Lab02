@@ -1,6 +1,6 @@
 # Build with either: docker build -t aes-lab .  OR  podman build -t aes-lab .
 # Override CMD with /opt/aes/bin/AES, or with:
-# python3 /opt/aes/share/AESModes/python/demo.py /opt/aes/lib/libaes_modes.so
+# python3 /opt/aes/share/AESModes/python/main.py /opt/aes/lib/libaes_modes.so
 FROM docker.io/library/debian:bookworm-slim AS builder
 
 RUN apt-get update \
@@ -10,7 +10,8 @@ RUN apt-get update \
 WORKDIR /src
 COPY CMakeLists.txt AES.cpp ./
 COPY modes/ ./modes/
-COPY examples/python/ ./examples/python/
+COPY task3/ ./task3/
+COPY task4/ ./task4/
 
 RUN cmake -S . -B /build \
         -DCMAKE_BUILD_TYPE=Release \

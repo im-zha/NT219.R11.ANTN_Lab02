@@ -1,4 +1,4 @@
-"""Run real native AES checks: python3 examples/python/demo.py PATH_TO_LIBRARY.
+"""Run Task 4 native AES checks: python3 task4/main.py PATH_TO_LIBRARY.
 
 Build first with ``cmake -S . -B build -DAES_LIBRARY_TYPE=BOTH`` followed by
 ``cmake --build build``. Supply the actual .so/.dll file, not a directory.
