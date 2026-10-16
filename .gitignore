@@ -5,10 +5,10 @@
 /Materials/
 /materials/
 
-# Generated executables and build files (modes has its own build-dir rule).
+# Generated executables and build files, at any project depth.
 /AES
 /AES.exe
-/build*/
+build*/
 *.o
 *.obj
 *.a

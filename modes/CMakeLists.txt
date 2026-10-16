@@ -24,6 +24,7 @@ endif()
 # tests/main.cpp checks the published vectors shown in the teacher's output.
 set(AES_SOURCES
   src/aes.cpp
+  src/aes_c.cpp
   src/sp800_38a.cpp
   src/sp800_38b.cpp
   src/sp800_38c.cpp
@@ -34,6 +35,7 @@ set(AES_SOURCES
 )
 set(AES_HEADERS
   include/aes.hpp
+  include/aes_c.h
   include/common.hpp
   include/sp800_38a.hpp
   include/sp800_38b.hpp
@@ -105,8 +107,25 @@ if(AES_BUILD_EXECUTABLE)
   add_executable(aes_tests tests/main.cpp)
   aes_configure_target(aes_tests)
   target_link_libraries(aes_tests PRIVATE ${AES_LINK_TARGET})
+  # The installed shared-only executable must find the sibling library without
+  # LD_LIBRARY_PATH, including after the installation prefix is relocated.
+  if(UNIX)
+    file(RELATIVE_PATH AES_LIB_FROM_BIN
+      "${CMAKE_INSTALL_FULL_BINDIR}" "${CMAKE_INSTALL_FULL_LIBDIR}")
+    if(APPLE)
+      set_target_properties(aes_tests PROPERTIES
+        INSTALL_RPATH "@loader_path/${AES_LIB_FROM_BIN}")
+    else()
+      set_target_properties(aes_tests PROPERTIES
+        INSTALL_RPATH "$ORIGIN/${AES_LIB_FROM_BIN}")
+    endif()
+  endif()
   if(AES_BUILD_TESTS)
     add_test(NAME aes_vectors COMMAND aes_tests)
+    add_executable(aes_c_tests tests/c_api.cpp)
+    aes_configure_target(aes_c_tests)
+    target_link_libraries(aes_c_tests PRIVATE ${AES_LINK_TARGET})
+    add_test(NAME aes_c_api_contract COMMAND aes_c_tests)
   endif()
 endif()
 

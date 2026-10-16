@@ -1,4 +1,17 @@
 @PACKAGE_INIT@
 
 include("${CMAKE_CURRENT_LIST_DIR}/AESModesTargets.cmake")
+
+# Match the build-tree convenience target for installed-package consumers.
+if(NOT TARGET AESModes::aes_modes)
+  add_library(AESModes::aes_modes INTERFACE IMPORTED)
+  if(TARGET AESModes::aes_modes_static)
+    set_property(TARGET AESModes::aes_modes PROPERTY
+      INTERFACE_LINK_LIBRARIES AESModes::aes_modes_static)
+  else()
+    set_property(TARGET AESModes::aes_modes PROPERTY
+      INTERFACE_LINK_LIBRARIES AESModes::aes_modes_shared)
+  endif()
+endif()
+
 check_required_components(AESModes)
