@@ -144,4 +144,3 @@ podman run --rm aes-lab python3 /opt/aes/share/AESModes/python/main.py /opt/aes/
 - GCM hiện dùng nonce 12 byte, tag 16 byte. CCM và GCM-SIV trả về `ciphertext || tag`; GCM cũng dùng định dạng này.
 - Caller cung cấp IV, nonce, counter hoặc tweak; thư viện không tự sinh hay gắn chúng vào ciphertext.
 - Các khóa/IV/nonce cố định trong chương trình kiểm tra là dữ liệu test công khai, không dùng cho dữ liệu thật. Không tái sử dụng nonce GCM/CCM hoặc chuỗi counter CTR dưới cùng khóa.
-- Đây là bài thực hành, không phải thư viện được chứng nhận FIPS hay đã qua đánh giá bảo mật để dùng trong sản phẩm.
